@@ -1,17 +1,33 @@
 const express = require('express')
 const app = express()
-const mysql = require('mysql')
+const mysql = require('mysql2')
 const cors = require('cors')
+require('dotenv').config();
 
 app.use(cors())
 app.use(express.json())
 
 const db = mysql.createConnection({
-    user: "root",
-    host: "localhost",
-    password: "",
-    database: "idvalorant"
-})
+  host: process.env.MYSQLHOST,
+  user: process.env.MYSQLUSER,
+  password: process.env.MYSQLPASSWORD,
+  database: process.env.MYSQLDATABASE,
+  port: process.env.MYSQLPORT,
+  ssl: {
+    rejectUnauthorized: false
+  }
+});
+
+
+
+db.connect(err => {
+    if (err) {
+        console.error('❌ Error connecting to MySQL:', err.stack);
+        return;
+    }
+    console.log('✅ Connected to MySQL database');
+});
+
 
 app.get('/stockvalorant', (req, res) => {
 
@@ -38,5 +54,5 @@ app.post('/createid', (req, res) => {
     })
 })
 
-const port = 3000
+const port = 3306
 app.listen(port, () => console.log(`Example app listening on port ${port}!`))
