@@ -13,9 +13,7 @@ const db = mysql.createConnection({
   password: process.env.MYSQLPASSWORD,
   database: process.env.MYSQLDATABASE,
   port: process.env.MYSQLPORT,
-  ssl: {
-    rejectUnauthorized: false
-  }
+  ssl: false
 });
 
 
@@ -54,5 +52,5 @@ app.post('/createid', (req, res) => {
     })
 })
 
-const port = 3306
+const port = 3000
 app.listen(port, () => console.log(`Example app listening on port ${port}!`))
