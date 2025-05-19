@@ -15,12 +15,12 @@ console.log('MYSQL_PORT:', process.env.MYSQL_PORT);
 
 
 const db = mysql.createConnection({
-  host: process.env.MYSQL_HOST,
-  user: process.env.MYSQL_USER,
-  password: process.env.MYSQL_PASSWORD,
-  database: process.env.MYSQL_DATABASE,
-  port: process.env.MYSQL_PORT,
-  ssl: false
+    host: process.env.MYSQL_HOST,
+    user: process.env.MYSQL_USER,
+    password: process.env.MYSQL_PASSWORD,
+    database: process.env.MYSQL_DATABASE,
+    port: process.env.MYSQL_PORT,
+    ssl: false
 });
 
 
@@ -46,16 +46,19 @@ app.get('/stockvalorant', (req, res) => {
 })
 
 app.post('/createid', (req, res) => {
+    console.log(req.body); // ดูข้อมูลที่ส่งมา
     const name = req.body.name;
-    const rank = req.body.rank;
+    const rankvalo = req.body.rankvalo;
     const price = req.body.price;
     const description = req.body.description;
-    db.query("INSERT INTO stockvalorant (name, rank, price, description) VALUES(?,?,?,?)", [name, rank, price, description], (err, result) => {
+    db.query("INSERT INTO stockvalorant (name, rankvalo, price, description) VALUES(?,?,?,?)", [name, rankvalo, price, description], (err, result) => {
         if (err) {
-            console.log(err)
+            console.log(err);
+            res.status(500).send({ error: 'Database insert failed', details: err });
         } else {
-            res.send("inserted")
+            res.send("inserted");
         }
+
     })
 })
 
