@@ -20,7 +20,9 @@ const db = mysql.createConnection({
   password: process.env.MYSQL_PASSWORD,
   database: process.env.MYSQL_DATABASE,
   port: process.env.MYSQL_PORT,
-  ssl: false
+  ssl: {
+    rejectUnauthorized: false
+  }
 });
 
 
