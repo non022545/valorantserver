@@ -62,5 +62,32 @@ app.post('/createid', (req, res) => {
     })
 })
 
+app.put('/updateid/:id', (req, res) => {
+  const { id } = req.params;
+  const { name, rankvalo, price, description } = req.body;
+  const sql = 'UPDATE stockvalorant SET name=?, rankvalo=?, price=?, description=? WHERE id=?';
+  db.query(sql, [name, rankvalo, price, description, id], (err, result) => {
+    if (err) {
+      res.status(500).send({ error: 'Failed to update data' });
+    } else {
+      res.send({ success: true });
+    }
+  });
+});
+
+app.delete('/deleteid/:id', (req, res) => {
+  const { id } = req.params;
+  const sql = 'DELETE FROM stockvalorant WHERE id = ?';
+  db.query(sql, [id], (err, result) => {
+    if (err) {
+      res.status(500).send({ error: 'Failed to delete data' });
+    } else {
+      res.send({ success: true });
+    }
+  });
+});
+
+
+
 const port = process.env.PORT || 3000;
 app.listen(port, () => console.log(`Example app listening on port ${port}!`))
