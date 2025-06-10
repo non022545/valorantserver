@@ -1,22 +1,34 @@
 require('dotenv').config();
-const express = require('express')
-const app = express()
-const mysql = require('mysql2')
-const cors = require('cors')
-const multer = require('multer')
-const path = require('path')
+const express = require('express');
+const mysql = require('mysql2');
+const cors = require('cors');
+const multer = require('multer');
+const { v2: cloudinary } = require('cloudinary');
+const { CloudinaryStorage } = require('multer-storage-cloudinary');
 
+const app = express();
+app.use(cors());
+app.use(express.json());
 
-app.use(cors())
-app.use(express.json())
+// ตั้งค่า Cloudinary
+cloudinary.config({
+    cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+    api_key: process.env.CLOUDINARY_API_KEY,
+    api_secret: process.env.CLOUDINARY_API_SECRET
+});
 
-console.log('MYSQL_HOST:', process.env.MYSQL_HOST);
-console.log('MYSQL_USER:', process.env.MYSQL_USER);
-console.log('MYSQL_PASSWORD:', process.env.MYSQL_PASSWORD ? '******' : null);
-console.log('MYSQL_DATABASE:', process.env.MYSQL_DATABASE);
-console.log('MYSQL_PORT:', process.env.MYSQL_PORT);
+// ตั้งค่า multer-storage-cloudinary
+const storage = new CloudinaryStorage({
+    cloudinary: cloudinary,
+    params: {
+        folder: 'stockvalorant',
+        allowed_formats: ['jpg', 'jpeg', 'png', 'webp']
+    }
+});
 
-// เปลี่ยนจาก createConnection → เป็น createPool
+const upload = multer({ storage });
+
+// MySQL pool
 const pool = mysql.createPool({
     host: process.env.MYSQL_HOST,
     user: process.env.MYSQL_USER,
@@ -25,30 +37,14 @@ const pool = mysql.createPool({
     port: process.env.MYSQL_PORT,
     ssl: false,
     waitForConnections: true,
-    connectionLimit: 10, // ตั้งจำนวน connection ได้ (10 กำลังดี)
+    connectionLimit: 10,
     queueLimit: 0
 });
 
-// ตั้งค่า storage → ให้เก็บรูปใน folder 'uploads'
-const storage = multer.diskStorage({
-    destination: function (req, file, cb) {
-        cb(null, 'uploads/')
-    },
-    filename: function (req, file, cb) {
-        cb(null, Date.now() + path.extname(file.originalname))
-    }
-})
-
-const upload = multer({ storage: storage })
-
-// ให้ express เสิร์ฟ static file ใน uploads folder ด้วย
-app.use('/uploads', express.static('uploads'))
-
-
+// Routes
 app.get('/stockvalorant', (req, res) => {
     pool.query("SELECT * FROM stockvalorant", (err, result) => {
         if (err) {
-            console.log(err);
             res.status(500).send({ error: 'Database query failed' });
         } else {
             res.send(result);
@@ -56,37 +52,35 @@ app.get('/stockvalorant', (req, res) => {
     });
 });
 
-app.post('/createid', (req, res) => {
-    upload.single('image')(req, res, function (err) {
-        if (err) {
-            console.error('Upload error:', err);
-            return res.status(400).json({ error: 'File upload failed', details: err.message });
-        }
+app.post('/createid', upload.single('image'), (req, res) => {
+    console.log('req.body:', req.body);
+    console.log('req.file:', req.file);
 
-        const { name, rankvalo, price, description } = req.body;
-        const imageUrl = req.file ? `/uploads/${req.file.filename}` : null;
+    const { name, rankvalo, price, description } = req.body;
+    const imageUrl = req.file ? req.file.path : null;
 
-        pool.query(
-            "INSERT INTO stockvalorant (name, rankvalo, price, description, imageUrl) VALUES(?,?,?,?,?)",
-            [name, rankvalo, price, description, imageUrl],
-            (err, result) => {
-                if (err) {
-                    console.error('DB insert error:', err);
-                    return res.status(500).send({ error: 'Database insert failed', details: err.message });
-                }
+    if (!rankvalo) {
+        return res.status(400).send({ error: "rankvalo is required" });
+    }
+
+    pool.query(
+        "INSERT INTO stockvalorant (name, rankvalo, price, description, imageUrl) VALUES(?,?,?,?,?)",
+        [name, rankvalo, price, description, imageUrl],
+        (err, result) => {
+            if (err) {
+                res.status(500).send({ error: 'Database insert failed', details: err });
+            } else {
                 res.send("inserted");
             }
-        );
-    });
+        }
+    );
 });
-
-
 
 
 app.put('/updateid/:id', upload.single('image'), (req, res) => {
     const { id } = req.params;
     const { name, rankvalo, price, description } = req.body;
-    const imageUrl = req.file ? `/uploads/${req.file.filename}` : null;
+    const imageUrl = req.file ? req.file.path : null;
 
     let sql = '';
     let params = [];
@@ -108,7 +102,6 @@ app.put('/updateid/:id', upload.single('image'), (req, res) => {
     });
 });
 
-
 app.delete('/deleteid/:id', (req, res) => {
     const { id } = req.params;
     const sql = 'DELETE FROM stockvalorant WHERE id = ?';
@@ -121,6 +114,6 @@ app.delete('/deleteid/:id', (req, res) => {
     });
 });
 
-
+// Run server
 const port = process.env.PORT || 3000;
-app.listen(port, () => console.log(`Example app listening on port ${port}!`))
+app.listen(port, () => console.log(`Server listening on port ${port}`));
