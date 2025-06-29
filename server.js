@@ -108,7 +108,7 @@ app.post('/createid', upload.single('image'), (req, res) => {
 
     const sql = `
         INSERT INTO stockvalorant 
-        (user_name, name, rankvalo, cost_price, selling_price, profit_price, link_user, description, status, imageUrl, purchase_date, sell_date) 
+        (user_name, name, rankvalo, cost_price, selling_price, profit_price, link_user, description, status, imageurl, purchase_date, sell_date) 
         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)
     `;
 
@@ -139,7 +139,7 @@ app.put('/updateid/:id', upload.single('image'), (req, res) => {
         sql = `
           UPDATE stockvalorant SET 
             user_name=$1, name=$2, rankvalo=$3, cost_price=$4, selling_price=$5, profit_price=$6, link_user=$7, 
-            description=$8, status=$9, imageUrl=$10, purchase_date=$11, sell_date=$12 
+            description=$8, status=$9, imageurl=$10, purchase_date=$11, sell_date=$12 
           WHERE id=$13
         `;
         params = [user_name, name, rankvalo, cost_price, selling_price, profit_price, link_user, description, status, imageUrl, purchase_date, sell_date, id];
