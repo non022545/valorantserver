@@ -95,10 +95,16 @@ app.post('/createid', upload.single('image'), (req, res) => {
     const { user_name, name, rankvalo, cost_price, selling_price, profit_price, link_user, description, status, purchase_date, sell_date } = req.body;
     const imageUrl = req.file ? req.file.path : null;
 
-    // ตรวจสอบว่าผ่านไหม
     if (!rankvalo) {
         return res.status(400).send({ error: "rankvalo is required" });
     }
+
+    // แปลงตัวเลขและวันที่
+    const costPriceNum = Number(cost_price);
+    const sellingPriceNum = Number(selling_price);
+    const profitPriceNum = Number(profit_price);
+    const purchaseDateValue = purchase_date && purchase_date !== "" ? purchase_date : null;
+    const sellDateValue = sell_date && sell_date !== "" ? sell_date : null;
 
     const sql = `
         INSERT INTO stockvalorant 
@@ -106,12 +112,12 @@ app.post('/createid', upload.single('image'), (req, res) => {
         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)
     `;
 
-    const params = [user_name, name, rankvalo, cost_price, selling_price, profit_price, link_user, description, status, imageUrl, purchase_date, sell_date];
+    const params = [user_name, name, rankvalo, costPriceNum, sellingPriceNum, profitPriceNum, link_user, description, status, imageUrl, purchaseDateValue, sellDateValue];
 
     pool.query(sql, params, (err, result) => {
         if (err) {
             console.error('Insert error:', err);
-            res.status(500).send({ error: 'Database insert failed', details: err.message });
+            return res.status(500).send({ error: 'Database insert failed', details: err.message });
         } else {
             res.send("inserted");
         }
