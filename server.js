@@ -1,6 +1,6 @@
 require('dotenv').config();
 const express = require('express');
-const mysql = require('mysql2');
+const { Pool } = require('pg');
 const cors = require('cors');
 const multer = require('multer');
 const { v2: cloudinary } = require('cloudinary');
@@ -33,44 +33,59 @@ const upload = multer({ storage });
 
 {/**************************************************   MySQL pool   *************************************************/ }
 
-const pool = mysql.createPool({
-    host: process.env.MYSQL_HOST,
-    user: process.env.MYSQL_USER,
-    password: process.env.MYSQL_PASSWORD,
-    database: process.env.MYSQL_DATABASE,
-    port: process.env.MYSQL_PORT,
-    ssl: false,
-    waitForConnections: true,
-    connectionLimit: 10,
-    queueLimit: 0
-});
-{/**************************************************   Routes   *************************************************/ }
-// 
+// const pool = mysql.createPool({
+//     host: process.env.MYSQL_HOST,
+//     user: process.env.MYSQL_USER,
+//     password: process.env.MYSQL_PASSWORD,
+//     database: process.env.MYSQL_DATABASE,
+//     port: process.env.MYSQL_PORT,
+//     ssl: false,
+//     waitForConnections: true,
+//     connectionLimit: 10,
+//     queueLimit: 0
+// });
 
+
+{/**************************************************   PostgreSQL pool   *************************************************/ }
+const pool = new Pool({
+    host: process.env.PG_HOST,
+    user: process.env.PG_USER,
+    password: process.env.PG_PASSWORD,
+    database: process.env.PG_DATABASE,
+    port: process.env.PG_PORT,
+    ssl: {
+        rejectUnauthorized: false
+    }
+});
+
+
+{/**************************************************   Routes   *************************************************/ }
 
 app.get('/stockvalorant', (req, res) => {
-    pool.query("SELECT * FROM stockvalorant", (err, result) => {
+    pool.query("SELECT * FROM stockvalorant ORDER BY id ASC", (err, result) => {
         if (err) {
-            res.status(500).send({ error: 'Database query failed' });
-        } else {
-            res.send(result);
+            console.error('Database query error:', err);
+            return res.status(500).send({ error: 'Database query failed', details: err.message });
         }
+        res.send(result.rows);
     });
 });
+
+
 
 {/**************************************************   Create   *************************************************/ }
 app.post('/createid', upload.single('image'), (req, res) => {
     console.log('req.body:', req.body);
     console.log('req.file:', req.file);
-    const { name, rankvalo, cost_price, selling_price, profit_price, link_user, description, status } = req.body;
+    const { user_name, name, rankvalo, cost_price, selling_price, profit_price, link_user, description, status, purchase_date, sell_date } = req.body;
     const imageUrl = req.file ? req.file.path : null;
     if (!rankvalo) {
         return res.status(400).send({ error: "rankvalo is required" });
     }
 
     pool.query(
-        "INSERT INTO stockvalorant (name, rankvalo, cost_price, selling_price, profit_price, link_user, description, status, imageUrl) VALUES(?,?,?,?,?,?,?,?,?)",
-        [name, rankvalo, cost_price, selling_price, profit_price, link_user, description, status, imageUrl],
+        "INSERT INTO stockvalorant (user_name, name, rankvalo, cost_price, selling_price, profit_price, link_user, description, status, imageUrl, purchase_date, sell_date) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)",
+        [user_name, name, rankvalo, cost_price, selling_price, profit_price, link_user, description, status, imageUrl,purchase_date, sell_date],
         (err, result) => {
             if (err) {
                 res.status(500).send({ error: 'Database insert failed', details: err });
@@ -85,7 +100,7 @@ app.post('/createid', upload.single('image'), (req, res) => {
 
 app.put('/updateid/:id', upload.single('image'), (req, res) => {
     const { id } = req.params;
-    const { name, rankvalo, cost_price, selling_price, profit_price, link_user, description, status } = req.body;
+    const { user_name, name, rankvalo, cost_price, selling_price, profit_price, link_user, description, status, purchase_date, sell_date } = req.body;
     const imageUrl = req.file ? req.file.path : null;
     console.log('Updating id:', req.params.id);
     console.log('Body:', req.body);
@@ -94,11 +109,11 @@ app.put('/updateid/:id', upload.single('image'), (req, res) => {
     let params = [];
 
     if (imageUrl) {
-        sql = 'UPDATE stockvalorant SET name=?, rankvalo=?, cost_price=?, selling_price=?, profit_price=?, link_user=?, description=?, status=?, imageUrl=? WHERE id=?';
-        params = [name, rankvalo, cost_price, selling_price, profit_price, link_user, description, status, imageUrl, id];
+        sql = 'UPDATE stockvalorant SET user_name=?, name=?, rankvalo=?, cost_price=?, selling_price=?, profit_price=?, link_user=?, description=?, status=?, imageUrl=?, purchase_date=?, sell_date=? WHERE id=?';
+        params = [user_name, name, rankvalo, cost_price, selling_price, profit_price, link_user, description, status, imageUrl, purchase_date, sell_date, id];
     } else {
-        sql = 'UPDATE stockvalorant SET name=?, rankvalo=?, cost_price=?, selling_price=?, profit_price=?, link_user=?, description=?, status=? WHERE id=?';
-        params = [name, rankvalo, cost_price, selling_price, profit_price, link_user, description, status, id];
+        sql = 'UPDATE stockvalorant SET user_name=?, name=?, rankvalo=?, cost_price=?, selling_price=?, profit_price=?, link_user=?, description=?, status=?, purchase_date=?, sell_date=? WHERE id=?';
+        params = [user_name, name, rankvalo, cost_price, selling_price, profit_price, link_user, description, status, purchase_date, sell_date, id];
     }
 
     pool.query(sql, params, (err, result) => {
