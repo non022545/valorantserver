@@ -71,6 +71,20 @@ app.get('/stockvalorant', (req, res) => {
     });
 });
 
+{/**************************************************   API Render   *************************************************/ }
+app.get('/stockvalorant/:id', (req, res) => {
+    const { id } = req.params;
+    pool.query('SELECT * FROM stockvalorant WHERE id = $1', [id], (err, result) => {
+        if (err) {
+            console.error('Error fetching item by id:', err);
+            return res.status(500).send({ error: 'Database error' });
+        }
+        if (result.rows.length === 0) {
+            return res.status(404).send({ error: 'Item not found' });
+        }
+        res.send(result.rows[0]);
+    });
+});
 
 
 {/**************************************************   Create   *************************************************/ }
