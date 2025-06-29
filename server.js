@@ -89,9 +89,13 @@ app.get('/stockvalorant/:id', (req, res) => {
 
 {/**************************************************   Create   *************************************************/ }
 app.post('/createid', upload.single('image'), (req, res) => {
+    console.log('req.file:', req.file);
+    console.log('req.body:', req.body);
+
     const { user_name, name, rankvalo, cost_price, selling_price, profit_price, link_user, description, status, purchase_date, sell_date } = req.body;
     const imageUrl = req.file ? req.file.path : null;
-    
+
+    // ตรวจสอบว่าผ่านไหม
     if (!rankvalo) {
         return res.status(400).send({ error: "rankvalo is required" });
     }
@@ -106,12 +110,14 @@ app.post('/createid', upload.single('image'), (req, res) => {
 
     pool.query(sql, params, (err, result) => {
         if (err) {
-            res.status(500).send({ error: 'Database insert failed', details: err });
+            console.error('Insert error:', err);
+            res.status(500).send({ error: 'Database insert failed', details: err.message });
         } else {
             res.send("inserted");
         }
     });
 });
+
 
 
 {/**************************************************   Update   *************************************************/ }
