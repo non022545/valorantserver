@@ -31,6 +31,14 @@ const storage = new CloudinaryStorage({
 
 const upload = multer({ storage });
 
+
+function parseDateOrNull(input) {
+    if (!input || input === "null") return null;
+    const date = new Date(input);
+    return isNaN(date.getTime()) ? null : date.toISOString();
+}
+
+
 {/**************************************************   MySQL pool   *************************************************/ }
 
 // const pool = mysql.createPool({
@@ -89,38 +97,37 @@ app.get('/stockvalorant/:id', (req, res) => {
 
 {/**************************************************   Create   *************************************************/ }
 app.post('/createid', upload.single('image'), (req, res) => {
-    console.log('req.file:', req.file);
-    console.log('req.body:', req.body);
+    const {
+        user_name, name, rankvalo, cost_price,
+        selling_price, profit_price, link_user,
+        description, status, purchase_date, sell_date
+    } = req.body;
 
-    const { user_name, name, rankvalo, cost_price, selling_price, profit_price, link_user, description, status, purchase_date, sell_date } = req.body;
     const imageUrl = req.file ? req.file.path : null;
 
-    if (!rankvalo) {
-        return res.status(400).send({ error: "rankvalo is required" });
-    }
-
-    // แปลงตัวเลขและวันที่
     const costPriceNum = Number(cost_price);
     const sellingPriceNum = Number(selling_price);
     const profitPriceNum = Number(profit_price);
-    const purchaseDateValue = purchase_date && purchase_date !== "" ? purchase_date : null;
-    const sellDateValue = sell_date && sell_date !== "" ? sell_date : null;
+    const purchaseDateValue = parseDateOrNull(purchase_date);
+    const sellDateValue = parseDateOrNull(sell_date);
 
     const sql = `
-        INSERT INTO stockvalorant 
-        (user_name, name, rankvalo, cost_price, selling_price, profit_price, link_user, description, status, imageurl, purchase_date, sell_date) 
-        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)
+      INSERT INTO stockvalorant
+      (user_name, name, rankvalo, cost_price, selling_price, profit_price, link_user, description, status, purchase_date, sell_date, imageurl)
+      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)
     `;
 
-    const params = [user_name, name, rankvalo, costPriceNum, sellingPriceNum, profitPriceNum, link_user, description, status, imageUrl, purchaseDateValue, sellDateValue];
+    const params = [
+        user_name, name, rankvalo, costPriceNum, sellingPriceNum, profitPriceNum,
+        link_user, description, status, purchaseDateValue, sellDateValue, imageUrl
+    ];
 
     pool.query(sql, params, (err, result) => {
         if (err) {
             console.error('Insert error:', err);
             return res.status(500).send({ error: 'Database insert failed', details: err.message });
-        } else {
-            res.send("inserted");
         }
+        res.send("inserted");
     });
 });
 
