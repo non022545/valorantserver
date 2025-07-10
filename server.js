@@ -70,7 +70,7 @@ app.get('/admin_Npass_non0625232145/stockvalorant', (req, res) => {
     pool.query("SELECT * FROM stockvalorant ORDER BY id ASC", (err, result) => {
         if (err) {
             console.error('Database query error:', err);
-            return res.status(500).send({ error: 'Database query failed', details: err.message });
+            return res.status(500).send({ error: 'Database query failed File .env error', details: err.message });
         }
         res.send(result.rows);
     });
@@ -82,7 +82,7 @@ app.get('/stockvalorant', (req, res) => {
     pool.query("SELECT id, name, rankvalo, selling_price, description, imageurl FROM stockvalorant  ORDER BY id ASC", (err, result) => {
         if (err) {
             console.error('Database query error:', err);
-            return res.status(500).send({ error: 'Database query failed', details: err.message });
+            return res.status(500).send({ error: 'Database query failed File .env error', details: err.message });
         }
         res.send(result.rows);
     });
