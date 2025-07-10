@@ -31,13 +31,10 @@ const storage = new CloudinaryStorage({
 
 const upload = multer({ storage });
 
-
 function parseDateOrNull(input) {
     if (!input || input === "null") return null;
-    const date = new Date(input);
-    return isNaN(date.getTime()) ? null : date.toISOString();
+    return input; 
 }
-
 
 {/**************************************************   MySQL pool   *************************************************/ }
 
@@ -55,21 +52,21 @@ function parseDateOrNull(input) {
 
 
 {/**************************************************   PostgreSQL pool   *************************************************/ }
+const isProduction = process.env.NODE_ENV === "production";
+
 const pool = new Pool({
     host: process.env.PG_HOST,
     user: process.env.PG_USER,
     password: process.env.PG_PASSWORD,
     database: process.env.PG_DATABASE,
     port: process.env.PG_PORT,
-    ssl: {
-        rejectUnauthorized: false
-    }
+    ssl: isProduction ? { rejectUnauthorized: false } : false
 });
 
 
-{/**************************************************   Routes   *************************************************/ }
+{/**************************************************   Get API Admin  *************************************************/ }
 
-app.get('/stockvalorant', (req, res) => {
+app.get('/admin_Npass_non0625232145/stockvalorant', (req, res) => {
     pool.query("SELECT * FROM stockvalorant ORDER BY id ASC", (err, result) => {
         if (err) {
             console.error('Database query error:', err);
@@ -79,8 +76,20 @@ app.get('/stockvalorant', (req, res) => {
     });
 });
 
+{/**************************************************   Get API Client  *************************************************/ }
+
+app.get('/stockvalorant', (req, res) => {
+    pool.query("SELECT id, name, rankvalo, selling_price, description, imageurl FROM stockvalorant  ORDER BY id ASC", (err, result) => {
+        if (err) {
+            console.error('Database query error:', err);
+            return res.status(500).send({ error: 'Database query failed', details: err.message });
+        }
+        res.send(result.rows);
+    });
+});
+
 {/**************************************************   API Render   *************************************************/ }
-app.get('/stockvalorant/:id', (req, res) => {
+app.get('/admin_Npass_non0625232145/stockvalorant/:id', (req, res) => {
     const { id } = req.params;
     pool.query('SELECT * FROM stockvalorant WHERE id = $1', [id], (err, result) => {
         if (err) {
@@ -96,14 +105,15 @@ app.get('/stockvalorant/:id', (req, res) => {
 
 
 {/**************************************************   Create   *************************************************/ }
-app.post('/createid', upload.single('image'), (req, res) => {
+app.post('/admin_Npass_non0625232145/createid', upload.single('image'), (req, res) => {
+    const imageUrl = req.file?.path || null;
+    console.log('Image URL:', imageUrl);
+
     const {
         user_name, name, rankvalo, cost_price,
         selling_price, profit_price, link_user,
         description, status, purchase_date, sell_date
     } = req.body;
-
-    const imageUrl = req.file ? req.file.path : null;
 
     const costPriceNum = Number(cost_price);
     const sellingPriceNum = Number(selling_price);
@@ -112,9 +122,9 @@ app.post('/createid', upload.single('image'), (req, res) => {
     const sellDateValue = parseDateOrNull(sell_date);
 
     const sql = `
-      INSERT INTO stockvalorant
-      (user_name, name, rankvalo, cost_price, selling_price, profit_price, link_user, description, status, purchase_date, sell_date, imageurl)
-      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)
+        INSERT INTO stockvalorant
+        (user_name, name, rankvalo, cost_price, selling_price, profit_price, link_user, description, status, purchase_date, sell_date, imageurl)
+        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)
     `;
 
     const params = [
@@ -125,16 +135,21 @@ app.post('/createid', upload.single('image'), (req, res) => {
     pool.query(sql, params, (err, result) => {
         if (err) {
             console.error('Insert error:', err);
-            return res.status(500).send({ error: 'Database insert failed', details: err.message });
+            return res.status(500).json({
+                error: 'Database insert failed',
+                message: err.message,
+                detail: err.detail,
+                hint: err.hint,
+                stack: err.stack
+            });
         }
         res.send("inserted");
     });
 });
 
 
-
 {/**************************************************   Update   *************************************************/ }
-app.put('/updateid/:id', upload.single('image'), (req, res) => {
+app.put('/admin_Npass_non0625232145/updateid/:id', upload.single('image'), (req, res) => {
     const { id } = req.params;
     const { user_name, name, rankvalo, cost_price, selling_price, profit_price, link_user, description, status, purchase_date, sell_date } = req.body;
     const imageUrl = req.file ? req.file.path : null;
@@ -172,7 +187,7 @@ app.put('/updateid/:id', upload.single('image'), (req, res) => {
 
 {/**************************************************   Delete   *************************************************/ }
 
-app.delete('/deleteid/:id', (req, res) => {
+app.delete('/admin_Npass_non0625232145/deleteid/:id', (req, res) => {
     const { id } = req.params;
     const sql = 'DELETE FROM stockvalorant WHERE id = $1';
     pool.query(sql, [id], (err, result) => {
