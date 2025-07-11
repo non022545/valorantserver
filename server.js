@@ -32,9 +32,11 @@ const storage = new CloudinaryStorage({
 const upload = multer({ storage });
 
 function parseDateOrNull(input) {
-    if (!input || input === "null") return null;
-    return input; 
+  if (!input || input === "null" || input.trim() === "") return null;
+  // ถ้าเป็น string รูปแบบ 'YYYY-MM-DD HH:mm:ss' ถือว่าใช้ได้เลย
+  return input;
 }
+
 
 {/**************************************************   MySQL pool   *************************************************/ }
 
@@ -147,42 +149,174 @@ app.post('/admin_Npass_non0625232145/createid', upload.single('image'), (req, re
     });
 });
 
-
 {/**************************************************   Update   *************************************************/ }
+
 app.put('/admin_Npass_non0625232145/updateid/:id', upload.single('image'), (req, res) => {
-    const { id } = req.params;
-    const { user_name, name, rankvalo, cost_price, selling_price, profit_price, link_user, description, status, purchase_date, sell_date } = req.body;
-    const imageUrl = req.file ? req.file.path : null;
+    const imageUrl = req.file?.path || null;
+    console.log('Image URL:', imageUrl);
 
-    let sql = '';
-    let params = [];
+    const {
+        user_name, name, rankvalo, cost_price,
+        selling_price, profit_price, link_user,
+        description, status, purchase_date, sell_date
+    } = req.body;
 
-    if (imageUrl) {
-        sql = `
-          UPDATE stockvalorant SET 
-            user_name=$1, name=$2, rankvalo=$3, cost_price=$4, selling_price=$5, profit_price=$6, link_user=$7, 
-            description=$8, status=$9, imageurl=$10, purchase_date=$11, sell_date=$12 
-          WHERE id=$13
+    const id = req.params.id;
+
+    const costPriceNum = Number(cost_price);
+    const sellingPriceNum = Number(selling_price);
+    const profitPriceNum = Number(profit_price);
+    const purchaseDateValue = parseDateOrNull(purchase_date);
+    const sellDateValue = parseDateOrNull(sell_date);
+
+    // ถ้ามี imageUrl ให้ update ด้วย, ถ้าไม่มีจะไม่แก้ไข imageurl
+    const sql = imageUrl
+        ? `
+            UPDATE stockvalorant SET
+                user_name = $1,
+                name = $2,
+                rankvalo = $3,
+                cost_price = $4,
+                selling_price = $5,
+                profit_price = $6,
+                link_user = $7,
+                description = $8,
+                status = $9,
+                purchase_date = $10,
+                sell_date = $11,
+                imageurl = $12
+            WHERE id = $13
+        `
+        : `
+            UPDATE stockvalorant SET
+                user_name = $1,
+                name = $2,
+                rankvalo = $3,
+                cost_price = $4,
+                selling_price = $5,
+                profit_price = $6,
+                link_user = $7,
+                description = $8,
+                status = $9,
+                purchase_date = $10,
+                sell_date = $11
+            WHERE id = $12
         `;
-        params = [user_name, name, rankvalo, cost_price, selling_price, profit_price, link_user, description, status, imageUrl, purchase_date, sell_date, id];
-    } else {
-        sql = `
-          UPDATE stockvalorant SET 
-            user_name=$1, name=$2, rankvalo=$3, cost_price=$4, selling_price=$5, profit_price=$6, link_user=$7, 
-            description=$8, status=$9, purchase_date=$10, sell_date=$11 
-          WHERE id=$12
-        `;
-        params = [user_name, name, rankvalo, cost_price, selling_price, profit_price, link_user, description, status, purchase_date, sell_date, id];
-    }
+
+    const params = imageUrl
+        ? [
+            user_name, name, rankvalo, costPriceNum, sellingPriceNum, profitPriceNum,
+            link_user, description, status, purchaseDateValue, sellDateValue, imageUrl, id
+        ]
+        : [
+            user_name, name, rankvalo, costPriceNum, sellingPriceNum, profitPriceNum,
+            link_user, description, status, purchaseDateValue, sellDateValue, id
+        ];
 
     pool.query(sql, params, (err, result) => {
         if (err) {
-            res.status(500).send({ error: 'Failed to update data', details: err });
-        } else {
-            res.send({ success: true });
+            console.error('Update error:', err);
+            return res.status(500).json({
+                error: 'Database update failed',
+                message: err.message,
+                detail: err.detail,
+                hint: err.hint,
+                stack: err.stack
+            });
         }
+
+        res.send("updated");
     });
 });
+
+
+
+{/**************************************************   Update   *************************************************/ }
+// app.put('/admin_Npass_non0625232145/updateid/:id', upload.single('image'), (req, res) => {
+//     const { id } = req.params;
+//     console.log('📝 Update request body:', req.body);
+//     console.log('📝 Update image file:', req.file);
+
+//     const {
+//         user_name, name, rankvalo, cost_price, selling_price, profit_price,
+//         link_user, description, status, purchase_date, sell_date
+//     } = req.body;
+
+//     const imageUrl = req.file ? req.file.path : null;
+
+//     const purchaseDateValue = parseDateOrNull(purchase_date);
+//     const sellDateValue = parseDateOrNull(sell_date);
+
+//     // ถ้ามี imageUrl ให้ update พร้อม ถ้าไม่มีก็ไม่แก้ไข imageurl
+//     let sql;
+//     let params;
+
+//     if (imageUrl) {
+//         sql = `
+//           UPDATE stockvalorant SET
+//             user_name = $1,
+//             name = $2,
+//             rankvalo = $3,
+//             cost_price = $4,
+//             selling_price = $5,
+//             profit_price = $6,
+//             link_user = $7,
+//             description = $8,
+//             status = $9,
+//             purchase_date = $10,
+//             sell_date = $11,
+//             imageurl = $12
+//           WHERE id = $13
+//         `;
+//         params = [
+//             user_name, name, rankvalo,
+//             Number(cost_price), Number(selling_price), Number(profit_price),
+//             link_user, description, status,
+//             purchaseDateValue, sellDateValue,
+//             imageUrl,
+//             id
+//         ];
+//     } else {
+//         sql = `
+//           UPDATE stockvalorant SET
+//             user_name = $1,
+//             name = $2,
+//             rankvalo = $3,
+//             cost_price = $4,
+//             selling_price = $5,
+//             profit_price = $6,
+//             link_user = $7,
+//             description = $8,
+//             status = $9,
+//             purchase_date = $10,
+//             sell_date = $11
+//           WHERE id = $12
+//         `;
+//         params = [
+//             user_name, name, rankvalo,
+//             Number(cost_price), Number(selling_price), Number(profit_price),
+//             link_user, description, status,
+//             purchaseDateValue, sellDateValue,
+//             id
+//         ];
+//     }
+
+//     pool.query(sql, params, (err, result) => {
+//         if (err) {
+//             console.error('❌ Update DB error:', err);
+//             return res.status(500).send({
+//                 error: 'Failed to update data',
+//                 message: err.message,
+//                 detail: err.detail,
+//                 hint: err.hint
+//             });
+//         }
+//         res.send({ success: true });
+//     });
+
+// });
+
+
 
 
 {/**************************************************   Delete   *************************************************/ }
