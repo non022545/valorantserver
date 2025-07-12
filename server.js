@@ -5,11 +5,30 @@ const cors = require('cors');
 const multer = require('multer');
 const { v2: cloudinary } = require('cloudinary');
 const { CloudinaryStorage } = require('multer-storage-cloudinary');
+const jwt = require('jsonwebtoken');
+const cookieParser = require('cookie-parser');
+const bcrypt = require('bcrypt');
 
 const app = express();
-app.use(cors());
+
 app.use(express.json());
 
+app.use(cookieParser()); // อย่าลืม! ใส่ไว้ด้านบนก่อนใช้ req.cookies
+app.use(cors({
+    origin: 'http://localhost:5173',
+    credentials: true,
+    allowedHeaders: ['Authorization', 'Content-Type'],
+}));
+
+{/**************************************************   Resetpassword   *************************************************/ }
+
+// const saltRounds = 10;
+
+// bcrypt.hash('1234', saltRounds).then(hash => {
+//   console.log('New hash for 1234:', hash);
+// });
+
+const JWT_SECRET = process.env.JWT_SECRET || 'backup-secret-key';
 
 {/**************************************************   ตั้งค่า Cloudinary   *************************************************/ }
 
@@ -32,9 +51,9 @@ const storage = new CloudinaryStorage({
 const upload = multer({ storage });
 
 function parseDateOrNull(input) {
-  if (!input || input === "null" || input.trim() === "") return null;
-  // ถ้าเป็น string รูปแบบ 'YYYY-MM-DD HH:mm:ss' ถือว่าใช้ได้เลย
-  return input;
+    if (!input || input === "null" || input.trim() === "") return null;
+    // ถ้าเป็น string รูปแบบ 'YYYY-MM-DD HH:mm:ss' ถือว่าใช้ได้เลย
+    return input;
 }
 
 
@@ -60,15 +79,17 @@ const pool = new Pool({
     host: process.env.PG_HOST,
     user: process.env.PG_USER,
     password: process.env.PG_PASSWORD,
-    database: process.env.PG_DATABASE,
+    database: process.env.PG_DATABASE_VALO,
     port: process.env.PG_PORT,
-    ssl: isProduction ? { rejectUnauthorized: false } : false
+    ssl: {
+        rejectUnauthorized: false
+    }
 });
 
 
 {/**************************************************   Get API Admin  *************************************************/ }
 
-app.get('/admin_Npass_non0625232145/stockvalorant', (req, res) => {
+app.post('/admin_Npass_non0625232145/createid', authenticateToken, upload.single('image'), (req, res) => {
     pool.query("SELECT * FROM stockvalorant ORDER BY id ASC", (err, result) => {
         if (err) {
             console.error('Database query error:', err);
@@ -91,7 +112,7 @@ app.get('/stockvalorant', (req, res) => {
 });
 
 {/**************************************************   API Render   *************************************************/ }
-app.get('/admin_Npass_non0625232145/stockvalorant/:id', (req, res) => {
+app.get('/admin_Npass_non0625232145/stockvalorant/:id', authenticateToken, (req, res) => {
     const { id } = req.params;
     pool.query('SELECT * FROM stockvalorant WHERE id = $1', [id], (err, result) => {
         if (err) {
@@ -107,7 +128,7 @@ app.get('/admin_Npass_non0625232145/stockvalorant/:id', (req, res) => {
 
 
 {/**************************************************   Create   *************************************************/ }
-app.post('/admin_Npass_non0625232145/createid', upload.single('image'), (req, res) => {
+app.post('/admin_Npass_non0625232145/createid', authenticateToken, upload.single('image'), (req, res) => {
     const imageUrl = req.file?.path || null;
     console.log('Image URL:', imageUrl);
 
@@ -151,7 +172,7 @@ app.post('/admin_Npass_non0625232145/createid', upload.single('image'), (req, re
 
 {/**************************************************   Update   *************************************************/ }
 
-app.put('/admin_Npass_non0625232145/updateid/:id', upload.single('image'), (req, res) => {
+app.put('/admin_Npass_non0625232145/updateid/:id', authenticateToken, upload.single('image'), (req, res) => {
     const imageUrl = req.file?.path || null;
     console.log('Image URL:', imageUrl);
 
@@ -321,7 +342,7 @@ app.put('/admin_Npass_non0625232145/updateid/:id', upload.single('image'), (req,
 
 {/**************************************************   Delete   *************************************************/ }
 
-app.delete('/admin_Npass_non0625232145/deleteid/:id', (req, res) => {
+app.delete('/admin_Npass_non0625232145/deleteid/:id', authenticateToken, (req, res) => {
     const { id } = req.params;
     const sql = 'DELETE FROM stockvalorant WHERE id = $1';
     pool.query(sql, [id], (err, result) => {
@@ -333,7 +354,67 @@ app.delete('/admin_Npass_non0625232145/deleteid/:id', (req, res) => {
     });
 });
 
+{/**************************************************   ล็อกอิน   *************************************************/ }
 
+// ล็อกอิน
+app.post('/login', async (req, res) => {
+    const { username, password } = req.body;
+    console.log('Login attempt:', username);
+    console.log('Password from req.body:', password);
+
+    try {
+        const userRes = await pool.query('SELECT * FROM admin_login WHERE username = $1', [username]);
+        if (userRes.rows.length === 0) {
+            console.log('No user found');
+            return res.status(400).json({ error: 'Invalid credentials' });
+        }
+
+        const user = userRes.rows[0];
+        console.log('User found:', user);
+
+        const match = await bcrypt.compare(password, user.password);
+        console.log('bcrypt.compare result:', match);
+
+        if (!match) {
+            console.log('Password mismatch');
+            return res.status(400).json({ error: 'Invalid credentials' });
+        }
+
+        const token = jwt.sign(
+            { userId: user.id, username: user.username, isAdmin: true }, // สมมติ admin ทุกคน isAdmin: true
+            JWT_SECRET,
+            { expiresIn: '1h' }
+        );
+
+
+        res.json({ token });
+    } catch (err) {
+        console.error('Login error:', err);
+        res.status(500).json({ error: 'Server error' });
+    }
+});
+
+
+
+// Middleware ตรวจสอบ token
+function authenticateToken(req, res, next) {
+    const authHeader = req.headers['authorization'];
+    const token = authHeader && authHeader.split(' ')[1];
+    if (!token) return res.status(401).json({ error: 'No token' });
+
+    jwt.verify(token, JWT_SECRET, (err, user) => {
+        if (err) return res.status(403).json({ error: 'Invalid token' });
+        if (!user.isAdmin) return res.status(403).json({ error: 'Not authorized as admin' });
+
+        req.user = user;
+        next();
+    });
+}
+
+// ตัวอย่าง API ที่ต้องล็อกอิน
+app.get('/me', authenticateToken, (req, res) => {
+    res.json({ userId: req.user.userId, username: req.user.username });
+});
 
 {/**************************************************   Run server port   *************************************************/ }
 
