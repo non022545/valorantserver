@@ -98,7 +98,7 @@ const pool = new Pool({
 
 {/**************************************************   Get API Admin  *************************************************/ }
 
-app.post('/admin_Npass_non0625232145/stockvalorant', authenticateToken, upload.single('image'), (req, res) => {
+app.get('/admin_Npass_non0625232145/stockvalorant', authenticateToken, upload.single('image'), (req, res) => {
     pool.query("SELECT * FROM stockvalorant ORDER BY id ASC", (err, result) => {
         if (err) {
             console.error('Database query error:', err);
