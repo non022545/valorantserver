@@ -13,12 +13,21 @@ const app = express();
 
 app.use(express.json());
 
+const allowedOrigins = ['http://localhost:5173', 'https://valorantclient.vercel.app'];
 app.use(cookieParser()); // อย่าลืม! ใส่ไว้ด้านบนก่อนใช้ req.cookies
+
 app.use(cors({
-    origin: 'http://localhost:5173',
-    credentials: true,
-    allowedHeaders: ['Authorization', 'Content-Type'],
+  origin: function (origin, callback) {
+    if (!origin || allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS: ' + origin));
+    }
+  },
+  credentials: true,
+  allowedHeaders: ['Authorization', 'Content-Type'],
 }));
+
 
 {/**************************************************   Resetpassword   *************************************************/ }
 
